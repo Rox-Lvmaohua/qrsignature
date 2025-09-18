@@ -48,7 +48,7 @@ public class SignController {
 
     @GetMapping("/status")
     public ResponseEntity<?> checkSignStatus(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                             @RequestParam String projectId,
+                                             @RequestParam(required = false) String projectId,
                                            @RequestParam String userId,
                                            @RequestParam String fileId) {
         try {
@@ -104,6 +104,22 @@ public class SignController {
             }
 
             SignConfirmResponse result = signService.confirmSign(token, request.getSignatureBase64());
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "签署确认失败",
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/getSign")
+    public ResponseEntity<?> getSign(@RequestParam(required = false) String projectId,
+                                           @RequestParam String userId,
+                                           @RequestParam String fileId) {
+        try {
+
+            String result = signService.getBase64Signature(projectId, userId, fileId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(

@@ -43,7 +43,7 @@ public class SignService {
         if (existingRecord.isPresent()) {
             signRecord = existingRecord.get();
             if (signRecord.getStatus() == SignRecord.SignStatus.SIGNED) {
-                throw new RuntimeException("该签署请求已完成，不可重复签署");
+                throw new RuntimeException("该用户的项目文件签署请求已完成，不可重复签署，请直接获取电子签名");
             }
         } else {
             signRecord = new SignRecord(projectId, userId, fileId, metaCode);
@@ -125,5 +125,20 @@ public class SignService {
         response.setSignRecordId(signRecordId);
 
         return response;
+    }
+
+    public String getBase64Signature(String projectId, String userId, String fileId) {
+        Optional<SignRecord> signRecord = signRecordRepository
+                .findByProjectIdAndUserIdAndFileId(projectId, userId, fileId);
+
+        if (signRecord.isEmpty()) {
+            throw new RuntimeException("签署记录不存在");
+        }
+
+        SignRecord record = signRecord.get();
+        if (record.getStatus() != SignRecord.SignStatus.SIGNED) {
+            throw new RuntimeException("签署记录未完成");
+        }
+        return record.getSignatureBase64();
     }
 }
