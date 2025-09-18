@@ -74,7 +74,10 @@ public class JwtUtil {
     public Boolean validateToken(String token) {
         try {
             extractClaims(token);
-            return !isTokenExpired(token);
+            if (isTokenExpired(token)) {
+                throw new RuntimeException("token已过期");
+            }
+            return true;
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }

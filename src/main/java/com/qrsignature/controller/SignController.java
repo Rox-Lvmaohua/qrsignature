@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+/**
+ * @author Administrator
+ */
 @RestController
 @RequestMapping("/api/sign")
 @CrossOrigin(origins = "*")
@@ -44,10 +47,24 @@ public class SignController {
     }
 
     @GetMapping("/status")
-    public ResponseEntity<?> checkSignStatus(@RequestParam String projectId,
+    public ResponseEntity<?> checkSignStatus(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                             @RequestParam String projectId,
                                            @RequestParam String userId,
                                            @RequestParam String fileId) {
         try {
+            if (authorization == null || authorization.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "参数错误",
+                        "message", "未传入token"
+                ));
+            }
+            String token = authorization.substring(7);
+            if (!jwtUtil.validateToken(token)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "认证失败",
+                        "message", "无效的Token"
+                ));
+            }
             SignStatusResponse result = signService.checkSignStatus(projectId, userId, fileId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -59,17 +76,19 @@ public class SignController {
     }
 
     @PostMapping("/confirm")
-    public ResponseEntity<?> confirmSign(@RequestHeader("Authorization") String authorization,
+    public ResponseEntity<?> confirmSign(@RequestHeader(value = "Authorization", required = false) String authorization,
                                        @RequestBody SignConfirmRequest request) {
         try {
-            if (authorization == null || !authorization.startsWith("Bearer ")) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "error", "认证失败",
-                        "message", "缺少Bearer Token"
-                ));
+            String token = null;
+
+            if (authorization != null && authorization.startsWith("Bearer ")) {
+                token = authorization.substring(7);
             }
 
-            String token = authorization.substring(7);
+            if (token == null) {
+                token = request.getToken().substring(7);
+            }
+
             if (!jwtUtil.validateToken(token)) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "error", "认证失败",

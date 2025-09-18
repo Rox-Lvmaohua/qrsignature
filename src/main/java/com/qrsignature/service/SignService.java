@@ -64,7 +64,8 @@ public class SignService {
 
         SignUrlResponse response = new SignUrlResponse();
         response.setSignUrl(signUrl);
-        response.setToken(token);
+        // 添加 Bearer 前缀
+        response.setToken("Bearer " + token);
         response.setStatus(signRecord.getStatus().getDescription());
 
         return response;
