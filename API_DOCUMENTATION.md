@@ -2,7 +2,7 @@
 
 ## 📋 接口总览
 
-本项目提供完整的QR码电子签名API接口，支持二维码生成、token验证、签名确认等功能。
+本项目提供完整的QR码电子签名API接口，支持二维码生成、签署状态轮询、签名确认等功能。
 
 ## 🔗 基础信息
 
@@ -47,61 +47,63 @@
 
 ---
 
-### 2. 验证Token
+### 2. 检查签署状态
 
-**接口地址**: `GET /api/sign/{token}`
+**接口地址**: `GET /api/sign/status`
 
-**功能描述**: 验证JWT token的有效性，返回当前签署状态
+**功能描述**: 根据项目信息查询签署状态，支持轮询
 
-**路径参数**:
-- `token`: JWT token字符串
+**请求参数**:
+- `projectId`: 项目ID (必需)
+- `userId`: 用户ID (必需)
+- `fileId`: 文件ID (必需)
 
-**响应示例**:
+**响应示例** (未签署):
 ```json
 {
   "projectId": "project-001",
   "userId": "user-001",
   "fileId": "file-001",
   "metaCode": "META-CODE-001",
-  "status": "未扫描"
+  "status": "未扫描",
+  "signatureBase64": null
+}
+```
+
+**响应示例** (已签署):
+```json
+{
+  "projectId": "project-001",
+  "userId": "user-001",
+  "fileId": "file-001",
+  "metaCode": "META-CODE-001",
+  "status": "已签署",
+  "signatureBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
 }
 ```
 
 **错误响应**:
 ```json
 {
-  "error": "token验证失败",
-  "message": "无效的token"
+  "error": "检查签署状态失败",
+  "message": "签署记录不存在"
 }
 ```
 
 ---
 
-### 3. 签名页面
-
-**接口地址**: `GET /api/sign/{token}/sign`
-
-**功能描述**: 返回签名确认页面（HTML页面）
-
-**路径参数**:
-- `token`: JWT token字符串
-
-**响应**: HTML页面
-
-**错误响应**: 错误页面，显示错误信息
-
----
-
-### 4. 确认签名
+### 3. 确认签名
 
 **接口地址**: `POST /api/sign/confirm`
 
 **功能描述**: 提交签名数据，完成签名确认
 
+**请求头**:
+- `Authorization`: `Bearer <JWT_TOKEN>`
+
 **请求参数**:
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9...",
   "signatureBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
 }
 ```
@@ -119,8 +121,8 @@
 **错误响应**:
 ```json
 {
-  "error": "签署确认失败",
-  "message": "token已过期或不存在"
+  "error": "认证失败",
+  "message": "缺少Bearer Token"
 }
 ```
 
@@ -140,23 +142,17 @@ curl -X POST http://localhost:29308/api/sign/url \
   }'
 ```
 
-### 步骤2: 验证Token
+### 步骤2: 轮询检查签署状态
 ```bash
-curl -X GET http://localhost:29308/api/sign/eyJhbGciOiJIUzI1NiJ9...
+curl -X GET "http://localhost:29308/api/sign/status?projectId=project-001&userId=user-001&fileId=file-001"
 ```
 
-### 步骤3: 访问签名页面
-在浏览器中访问：
-```
-http://localhost:29308/api/sign/eyJhbGciOiJIUzI1NiJ9.../sign
-```
-
-### 步骤4: 确认签名
+### 步骤3: 确认签名
 ```bash
 curl -X POST http://localhost:29308/api/sign/confirm \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9..." \
   -d '{
-    "token": "eyJhbGciOiJIUzI1NiJ9...",
     "signatureBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
   }'
 ```

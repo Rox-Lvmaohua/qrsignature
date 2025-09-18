@@ -1,5 +1,8 @@
 package com.qrsignature.service;
 
+import com.qrsignature.controller.vo.SignConfirmResponse;
+import com.qrsignature.controller.vo.SignStatusResponse;
+import com.qrsignature.controller.vo.SignUrlResponse;
 import com.qrsignature.entity.SignRecord;
 import com.qrsignature.repository.SignRecordRepository;
 import com.qrsignature.util.JacksonUtils;
@@ -13,7 +16,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class SignService {
@@ -33,7 +35,7 @@ public class SignService {
     @Value("${server.host:localhost}")
     private String serverHost;
 
-    public Map<String, Object> generateSignUrl(String projectId, String userId, String fileId, String metaCode) {
+    public SignUrlResponse generateSignUrl(String projectId, String userId, String fileId, String metaCode) {
         Optional<SignRecord> existingRecord = signRecordRepository
                 .findByProjectIdAndUserIdAndFileId(projectId, userId, fileId);
 
@@ -60,43 +62,38 @@ public class SignService {
 
         redisTemplate.opsForValue().set(token, JacksonUtils.toJsonString(redisData), Duration.ofMinutes(15));
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("signUrl", signUrl);
-        result.put("token", token);
-        result.put("status", signRecord.getStatus().getDescription());
+        SignUrlResponse response = new SignUrlResponse();
+        response.setSignUrl(signUrl);
+        response.setToken(token);
+        response.setStatus(signRecord.getStatus().getDescription());
 
-        return result;
+        return response;
     }
 
-    public Map<String, Object> validateToken(String token) {
-        if (!jwtUtil.validateToken(token)) {
-            throw new RuntimeException("无效的token");
+    public SignStatusResponse checkSignStatus(String projectId, String userId, String fileId) {
+        Optional<SignRecord> signRecord = signRecordRepository
+                .findByProjectIdAndUserIdAndFileId(projectId, userId, fileId);
+
+        if (signRecord.isEmpty()) {
+            throw new RuntimeException("签署记录不存在");
         }
 
-        Map<String, Object> redisData = JacksonUtils.readJson((String) redisTemplate.opsForValue().get(token), Map.class);
-        if (redisData == null) {
-            throw new RuntimeException("token已过期或不存在");
+        SignRecord record = signRecord.get();
+        SignStatusResponse response = new SignStatusResponse();
+        response.setProjectId(projectId);
+        response.setUserId(userId);
+        response.setFileId(fileId);
+        response.setMetaCode(record.getMetaCode());
+        response.setStatus(record.getStatus().getDescription());
+
+        if (record.getStatus() == SignRecord.SignStatus.SIGNED) {
+            response.setSignatureBase64(record.getSignatureBase64());
         }
 
-        String signRecordId = redisData.get("signRecordId").toString();
-        SignRecord signRecord = signRecordRepository.findById(signRecordId)
-                .orElseThrow(() -> new RuntimeException("签署记录不存在"));
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("projectId", redisData.get("projectId"));
-        result.put("userId", redisData.get("userId"));
-        result.put("fileId", redisData.get("fileId"));
-        result.put("metaCode", redisData.get("metaCode"));
-        result.put("status", signRecord.getStatus().getDescription());
-
-        if (signRecord.getStatus() != SignRecord.SignStatus.UNSCANNED) {
-            redisTemplate.delete(token);
-        }
-
-        return result;
+        return response;
     }
 
-    public Map<String, Object> confirmSign(String token, String signatureBase64) {
+    public SignConfirmResponse confirmSign(String token, String signatureBase64) {
         if (!jwtUtil.validateToken(token)) {
             throw new RuntimeException("无效的token");
         }
@@ -120,12 +117,12 @@ public class SignService {
 
         redisTemplate.delete(token);
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("message", "签署成功");
-        result.put("status", SignRecord.SignStatus.SIGNED.getDescription());
-        result.put("signatureBase64", signatureBase64);
-        result.put("signRecordId", signRecordId);
+        SignConfirmResponse response = new SignConfirmResponse();
+        response.setMessage("签署成功");
+        response.setStatus(SignRecord.SignStatus.SIGNED.getDescription());
+        response.setSignatureBase64(signatureBase64);
+        response.setSignRecordId(signRecordId);
 
-        return result;
+        return response;
     }
 }

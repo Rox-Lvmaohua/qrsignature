@@ -1,16 +1,20 @@
 package com.qrsignature.controller;
 
+import com.qrsignature.controller.dto.SignConfirmRequest;
+import com.qrsignature.controller.dto.SignStatusRequest;
 import com.qrsignature.controller.dto.SignUrlRequest;
+import com.qrsignature.controller.vo.SignConfirmResponse;
+import com.qrsignature.controller.vo.SignStatusResponse;
+import com.qrsignature.controller.vo.SignUrlResponse;
 import com.qrsignature.service.SignService;
+import com.qrsignature.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-@Controller
+@RestController
 @RequestMapping("/api/sign")
 @CrossOrigin(origins = "*")
 public class SignController {
@@ -18,17 +22,18 @@ public class SignController {
     @Autowired
     private SignService signService;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
     @PostMapping("/url")
-    @ResponseBody
     public ResponseEntity<?> generateSignUrl(@RequestBody SignUrlRequest request) {
         try {
-            String projectId = request.getProjectId();
-            String userId = request.getUserId();
-            String fileId = request.getFileId();
-            String metaCode = request.getMetaCode();
-
-
-            Map<String, Object> result = signService.generateSignUrl(projectId, userId, fileId, metaCode);
+            SignUrlResponse result = signService.generateSignUrl(
+                    request.getProjectId(),
+                    request.getUserId(),
+                    request.getFileId(),
+                    request.getMetaCode()
+            );
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -38,43 +43,48 @@ public class SignController {
         }
     }
 
-    @GetMapping("/{token}")
-    @ResponseBody
-    public ResponseEntity<?> validateToken(@PathVariable String token) {
+    @GetMapping("/status")
+    public ResponseEntity<?> checkSignStatus(@RequestParam String projectId,
+                                           @RequestParam String userId,
+                                           @RequestParam String fileId) {
         try {
-            Map<String, Object> result = signService.validateToken(token);
+            SignStatusResponse result = signService.checkSignStatus(projectId, userId, fileId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "error", "token验证失败",
+                    "error", "检查签署状态失败",
                     "message", e.getMessage()
             ));
         }
     }
 
-    @GetMapping("/sign")
-    public String signPage(String token, Model model) {
-        // 处理逻辑
-        model.addAttribute("token", token);
-        // 返回正确的视图名称
-        return "sign";
-    }
-
     @PostMapping("/confirm")
-    @ResponseBody
-    public ResponseEntity<?> confirmSign(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> confirmSign(@RequestHeader("Authorization") String authorization,
+                                       @RequestBody SignConfirmRequest request) {
         try {
-            String token = request.get("token");
-            String signatureBase64 = request.get("signatureBase64");
-
-            if (token == null || signatureBase64 == null) {
+            if (authorization == null || !authorization.startsWith("Bearer ")) {
                 return ResponseEntity.badRequest().body(Map.of(
-                        "error", "缺少必要参数",
-                        "message", "token和signatureBase64都是必需参数"
+                        "error", "认证失败",
+                        "message", "缺少Bearer Token"
                 ));
             }
 
-            Map<String, Object> result = signService.confirmSign(token, signatureBase64);
+            String token = authorization.substring(7);
+            if (!jwtUtil.validateToken(token)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "认证失败",
+                        "message", "无效的Token"
+                ));
+            }
+
+            if (request.getSignatureBase64() == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "参数错误",
+                        "message", "signatureBase64是必需参数"
+                ));
+            }
+
+            SignConfirmResponse result = signService.confirmSign(token, request.getSignatureBase64());
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
