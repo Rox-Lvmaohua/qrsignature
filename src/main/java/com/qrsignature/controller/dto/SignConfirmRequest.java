@@ -11,4 +11,6 @@ import lombok.Data;
 public class SignConfirmRequest {
     private String token;
     private String signatureBase64;
+    private String userSignatureId;
+    private Boolean saveForReuse = false;
 }

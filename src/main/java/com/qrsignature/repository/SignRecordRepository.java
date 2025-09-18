@@ -2,6 +2,7 @@ package com.qrsignature.repository;
 
 import com.qrsignature.entity.SignRecord;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -21,4 +22,7 @@ public interface SignRecordRepository extends JpaRepository<SignRecord, String> 
     boolean existsByProjectIdAndUserIdAndFileId(String projectId, String userId, String fileId);
 
     List<SignRecord> findByStatus(SignRecord.SignStatus status);
+
+    @Query("SELECT MAX(s.signatureSequence) FROM SignRecord s WHERE s.projectId = ?1 AND s.userId = ?2 AND s.fileId = ?3")
+    Integer getMaxSignatureSequence(String projectId, String userId, String fileId);
 }

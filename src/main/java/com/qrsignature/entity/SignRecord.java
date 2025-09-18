@@ -42,6 +42,9 @@ public class SignRecord {
     @Column(length = 1000000)
     private String signatureBase64;
 
+    @Column(name = "signature_sequence")
+    private Integer signatureSequence = 1;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createTime;

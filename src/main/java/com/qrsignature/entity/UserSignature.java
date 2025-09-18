@@ -27,14 +27,8 @@ public class UserSignature {
     @Column(name = "user_id", nullable = false, length = 100)
     private String userId;
 
-    @Column(name = "signature_name", length = 200)
-    private String signatureName;
-
     @Column(name = "signature_base64", nullable = false, columnDefinition = "TEXT")
     private String signatureBase64;
-
-    @Column(name = "is_default", nullable = false)
-    private Boolean isDefault = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -53,10 +47,8 @@ public class UserSignature {
         updatedAt = LocalDateTime.now();
     }
 
-    public UserSignature(String userId, String signatureBase64, String signatureName) {
+    public UserSignature(String userId, String signatureBase64) {
         this.userId = userId;
         this.signatureBase64 = signatureBase64;
-        this.signatureName = signatureName;
-        this.isDefault = false;
     }
 }

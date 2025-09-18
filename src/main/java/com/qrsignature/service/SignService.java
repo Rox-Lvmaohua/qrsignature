@@ -1,10 +1,15 @@
 package com.qrsignature.service;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.qrsignature.controller.dto.SignConfirmRequest;
 import com.qrsignature.controller.vo.SignConfirmResponse;
 import com.qrsignature.controller.vo.SignStatusResponse;
 import com.qrsignature.controller.vo.SignUrlResponse;
 import com.qrsignature.entity.SignRecord;
+import com.qrsignature.entity.UserSignature;
 import com.qrsignature.repository.SignRecordRepository;
+import com.qrsignature.repository.UserSignatureRepository;
 import com.qrsignature.util.JacksonUtils;
 import com.qrsignature.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +22,8 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class SignService {
@@ -25,10 +32,25 @@ public class SignService {
     private SignRecordRepository signRecordRepository;
 
     @Autowired
+    private UserSignatureRepository userSignatureRepository;
+
+    @Autowired
     private JwtUtil jwtUtil;
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    // 使用Guava Cache实现本地缓存，设置15分钟过期时间
+    private final Cache<String, Map<String, Object>> tokenCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(15, TimeUnit.MINUTES)
+            .maximumSize(1000)
+            .build();
+
+    // 状态查询缓存，缓存5分钟
+    private final Cache<String, SignStatusResponse> statusCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(5, TimeUnit.MINUTES)
+            .maximumSize(10000)
+            .build();
 
     @Value("${server.port:8080}")
     private String serverPort;
@@ -37,21 +59,22 @@ public class SignService {
     private String serverHost;
 
     public SignUrlResponse generateSignUrl(String token, String projectId, String userId, String fileId, String metaCode) {
-        Optional<SignRecord> existingRecord = signRecordRepository
-                .findByProjectIdAndUserIdAndFileId(projectId, userId, fileId);
-
-        SignRecord signRecord;
-        if (existingRecord.isPresent()) {
-            signRecord = existingRecord.get();
-            if (signRecord.getStatus() == SignRecord.SignStatus.SIGNED) {
-                throw new RuntimeException("该签署请求已完成，不可重复签署");
-            }
+        // 获取下一个签名序号
+        Integer nextSequence = signRecordRepository.getMaxSignatureSequence(projectId, userId, fileId);
+        if (nextSequence == null) {
+            nextSequence = 1;
         } else {
-            signRecord = new SignRecord(projectId, userId, fileId, metaCode);
-            signRecord = signRecordRepository.save(signRecord);
+            nextSequence++;
         }
 
-        if (!StringUtils.hasText(token) || !jwtUtil.validateToken(token)) {
+        // 创建新的签署记录，支持多次签署
+        SignRecord signRecord = new SignRecord(projectId, userId, fileId, metaCode);
+        signRecord.setSignatureSequence(nextSequence);
+        signRecord = signRecordRepository.save(signRecord);
+
+        if (!StringUtils.hasText(token)) {
+            token = jwtUtil.generateToken(projectId, userId, fileId, metaCode);
+        } else if (!jwtUtil.validateToken(token)) {
             token = jwtUtil.generateToken(projectId, userId, fileId, metaCode);
         }
         String signUrl = String.format("http://%s:%s/sign.html?token=Bearer %s", serverHost, serverPort, token);
@@ -63,48 +86,56 @@ public class SignService {
         redisData.put("metaCode", metaCode);
         redisData.put("signRecordId", signRecord.getId());
 
-        redisTemplate.opsForValue().set(token, JacksonUtils.toJsonString(redisData), Duration.ofMinutes(15));
+        tokenCache.put(token, redisData);
+        token = "Bearer " + token;
 
         SignUrlResponse response = new SignUrlResponse();
         response.setSignUrl(signUrl);
-        // 添加 Bearer 前缀
-        response.setToken("Bearer " + token);
+        response.setToken(token);
         response.setStatus(signRecord.getStatus().getDescription());
+        response.setSignatureSequence(nextSequence);
+        response.setSignRecordId(signRecord.getId());
 
         return response;
     }
 
     public SignStatusResponse checkSignStatus(String signRecordId) {
-        Optional<SignRecord> signRecord = signRecordRepository
-                .findById(signRecordId);
+        try {
+            // 使用Guava Cache的原子性get操作，确保只有一个线程会执行数据库查询
+            return statusCache.get(signRecordId, () -> {
+                Optional<SignRecord> signRecord = signRecordRepository.findById(signRecordId);
 
-        if (signRecord.isEmpty()) {
-            throw new RuntimeException("签署记录不存在");
+                if (signRecord.isEmpty()) {
+                    throw new RuntimeException("签署记录不存在");
+                }
+
+                SignRecord record = signRecord.get();
+                SignStatusResponse response = new SignStatusResponse();
+                response.setSignRecordId(signRecordId);
+                response.setStatus(record.getStatus().getDescription());
+
+                if (record.getStatus() == SignRecord.SignStatus.SIGNED) {
+                    response.setSignatureBase64(record.getSignatureBase64());
+                }
+
+                return response;
+            });
+        } catch (ExecutionException e) {
+            throw new RuntimeException("查询签署状态失败", e);
         }
-
-        SignRecord record = signRecord.get();
-        SignStatusResponse response = new SignStatusResponse();
-        response.setMetaCode(record.getMetaCode());
-        response.setStatus(record.getStatus().getDescription());
-
-        if (record.getStatus() == SignRecord.SignStatus.SIGNED) {
-            response.setSignatureBase64(record.getSignatureBase64());
-        }
-
-        return response;
     }
 
-    public SignConfirmResponse confirmSign(String token, String signatureBase64) {
+    public SignConfirmResponse confirmSign(String token, SignConfirmRequest request) {
         if (!jwtUtil.validateToken(token)) {
             throw new RuntimeException("无效的token");
         }
 
-        Map<String, Object> redisData = JacksonUtils.readJson((String) redisTemplate.opsForValue().get(token), Map.class);
-        if (redisData == null) {
+        Map<String, Object> cacheData = tokenCache.getIfPresent(token);
+        if (cacheData == null) {
             throw new RuntimeException("token已过期或不存在");
         }
 
-        String signRecordId = redisData.get("signRecordId").toString();
+        String signRecordId = cacheData.get("signRecordId").toString();
         SignRecord signRecord = signRecordRepository.findById(signRecordId)
                 .orElseThrow(() -> new RuntimeException("签署记录不存在"));
 
@@ -112,18 +143,41 @@ public class SignService {
             throw new RuntimeException("该签署请求已完成");
         }
 
+        String signatureBase64 = request.getSignatureBase64();
+
+        // 如果使用历史签名
+        if (request.getUserSignatureId() != null && !request.getUserSignatureId().isEmpty()) {
+            Optional<UserSignature> userSignature = userSignatureRepository.findById(request.getUserSignatureId());
+            if (userSignature.isPresent()) {
+                signatureBase64 = userSignature.get().getSignatureBase64();
+            }
+        } else if (request.getSaveForReuse() != null && request.getSaveForReuse()) {
+            // 保存用户签名以便重用
+            saveUserSignature(signRecord.getUserId(), signatureBase64);
+        }
+
         signRecord.setStatus(SignRecord.SignStatus.SIGNED);
         signRecord.setSignatureBase64(signatureBase64);
         signRecordRepository.save(signRecord);
 
-        redisTemplate.delete(token);
+        statusCache.invalidate(signRecordId);
+        tokenCache.invalidate(token);
 
         SignConfirmResponse response = new SignConfirmResponse();
         response.setMessage("签署成功");
         response.setStatus(SignRecord.SignStatus.SIGNED.getDescription());
         response.setSignatureBase64(signatureBase64);
         response.setSignRecordId(signRecordId);
+        response.setSignatureSequence(signRecord.getSignatureSequence());
 
         return response;
+    }
+
+    /**
+     * 保存用户签名以便重用
+     */
+    private void saveUserSignature(String userId, String signatureBase64) {
+        UserSignature userSignature = new UserSignature(userId, signatureBase64);
+        userSignatureRepository.save(userSignature);
     }
 }

@@ -19,21 +19,9 @@ public interface UserSignatureRepository extends JpaRepository<UserSignature, St
     List<UserSignature> findByUserIdOrderByCreatedAtDesc(String userId);
 
     /**
-     * 根据用户ID查找默认签名
-     */
-    Optional<UserSignature> findByUserIdAndIsDefaultTrue(String userId);
-
-    /**
      * 根据用户ID和签名ID查找签名
      */
     Optional<UserSignature> findByUserIdAndId(String userId, String signatureId);
-
-    /**
-     * 将用户的所有签名设为非默认
-     */
-    @Modifying
-    @Query("UPDATE UserSignature u SET u.isDefault = false WHERE u.userId = :userId")
-    void resetDefaultSignatures(@Param("userId") String userId);
 
     /**
      * 删除用户指定签名

@@ -103,7 +103,7 @@ public class SignController {
                 ));
             }
 
-            SignConfirmResponse result = signService.confirmSign(token, request.getSignatureBase64());
+            SignConfirmResponse result = signService.confirmSign(token, request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(

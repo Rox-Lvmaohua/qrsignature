@@ -6,6 +6,7 @@ class QrSignatureApp {
         this.currentProjectId = null;
         this.currentUserId = null;
         this.currentFileId = null;
+        this.signRecordId = null;
         this.init();
     }
 
@@ -94,10 +95,10 @@ class QrSignatureApp {
         }
 
         this.pollingInterval = setInterval(async () => {
-            if (!this.currentProjectId || !this.currentUserId || !this.currentFileId || !this.currentToken) return;
+            if (!this.signRecordId || !this.currentProjectId || !this.currentUserId || !this.currentFileId || !this.currentToken) return;
 
             try {
-                const response = await fetch(`${this.apiUrl}/status?projectId=${this.currentProjectId}&userId=${this.currentUserId}&fileId=${this.currentFileId}`, {
+                const response = await fetch(`${this.apiUrl}/status?signRecordId=${this.signRecordId}`, {
                     headers: {
                         'Authorization': this.currentToken
                     }
