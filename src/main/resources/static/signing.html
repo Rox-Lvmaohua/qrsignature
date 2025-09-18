@@ -26,7 +26,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
-            max-width: 500px;
+            max-width: 600px;
             width: 100%;
             text-align: center;
         }
@@ -61,6 +61,34 @@
             color: #333;
         }
 
+        .signature-mode {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e1e5e9;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .mode-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
         .signature-canvas {
             margin: 20px 0;
         }
@@ -72,6 +100,89 @@
 
         .canvas-controls {
             margin-top: 15px;
+        }
+
+        .historical-signatures {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .signature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .signature-item {
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .signature-item:hover {
+            border-color: #667eea;
+        }
+
+        .signature-item.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .signature-item img {
+            max-width: 100%;
+            max-height: 80px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .signature-item p {
+            font-size: 12px;
+            color: #666;
+            margin: 0;
+        }
+
+        .signature-options {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            text-align: left;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .checkbox-item label {
+            font-size: 14px;
+            color: #555;
+            cursor: pointer;
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-top: 5px;
         }
 
         button {

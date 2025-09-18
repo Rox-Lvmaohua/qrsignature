@@ -42,6 +42,12 @@ public class SignRecord {
     @Column(length = 1000000)
     private String signatureBase64;
 
+    @Column(name = "signature_sequence")
+    private Integer signatureSequence = 1;
+
+    @Column(name = "user_signature_id")
+    private String userSignatureId;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createTime;
@@ -54,7 +60,8 @@ public class SignRecord {
     public enum SignStatus {
         UNSCANNED("未扫描"),
         SCANNED_UNCONFIRMED("已扫描未签署"),
-        SIGNED("已签署");
+        SIGNED("已签署"),
+        DELETED("已删除");
 
         private final String description;
 

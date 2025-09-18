@@ -1,7 +1,7 @@
 # QR签名系统 - 实现状态
 
 ## 🎯 项目概述
-基于Spring Boot 3.x的QR码电子签名系统，支持通过扫码方式进行电子签名确认。
+基于Spring Boot 3.x的QR码电子签名系统，支持通过扫码方式进行电子签名确认，具备多次签署、签名重用、删除重传等高级功能。
 
 ## ✅ 已完成功能
 
@@ -13,24 +13,32 @@
 - [x] **RedisConfig配置类** - Redis缓存配置
 - [x] **SignService业务逻辑** - 完整的业务逻辑实现
 - [x] **SignController控制器** - RESTful API接口
+- [x] **PageController静态页面路由** - 静态页面访问控制
+- [x] **DTO/VO类** - 类型安全的请求响应对象
+- [x] **OAuth 2.0 Bearer Token认证** - 标准认证机制
 - [x] **application.yml配置** - SQLite和Redis配置
 
 ### 前端实现
-- [x] **主页面(index.html)** - 二维码生成和状态监控
+- [x] **主页面(index.html)** - 签署页面生成和状态监控
 - [x] **签名页面(sign.html)** - 签名确认界面
 - [x] **JavaScript逻辑(app.js)** - 完整的前端交互逻辑
-- [x] **二维码生成** - 使用QRCode.js库
 - [x] **手写签名** - Canvas实现签名功能
 - [x] **实时状态监控** - 轮询机制
+- [x] **页面重置功能** - 完成后重置到初始状态
 
 ### 核心功能
 - [x] **签署URL生成** - POST /api/sign/url
-- [x] **Token验证** - GET /api/sign/{token}
 - [x] **签名确认** - POST /api/sign/confirm
+- [x] **状态检查** - GET /api/sign/status
+- [x] **获取历史签名** - GET /api/sign/history/{userId}
+- [x] **删除签名记录** - DELETE /api/sign/{signRecordId}
 - [x] **Redis缓存** - 15分钟TTL
 - [x] **JWT认证** - 安全的token机制
 - [x] **SQLite存储** - 持久化签名记录
 - [x] **状态管理** - 未扫描/已扫描未签署/已签署
+- [x] **多次签署支持** - 同一用户项目文件支持多次签署
+- [x] **签名重用** - 支持用户选择历史签名
+- [x] **删除重传** - 支持删除签名记录并重新上传
 
 ## 📋 项目结构
 ```
@@ -39,17 +47,29 @@ src/
 │   ├── java/com/qrsignature/
 │   │   ├── QrSignatureApplication.java    # 主应用类
 │   │   ├── controller/
-│   │   │   └── SignController.java         # 控制器
+│   │   │   ├── SignController.java         # 签名控制器
+│   │   │   └── PageController.java         # 静态页面控制器
 │   │   ├── service/
 │   │   │   └── SignService.java           # 业务逻辑
 │   │   ├── repository/
-│   │   │   └── SignRecordRepository.java   # 数据访问
+│   │   │   ├── SignRecordRepository.java   # 签署记录数据访问
+│   │   │   └── UserSignatureRepository.java # 用户签名数据访问
 │   │   ├── entity/
-│   │   │   └── SignRecord.java            # 实体类
+│   │   │   ├── SignRecord.java            # 签署记录实体
+│   │   │   └── UserSignature.java         # 用户签名实体
+│   │   ├── vo/
+│   │   │   ├── SignUrlResponse.java       # 签署URL响应
+│   │   │   ├── SignStatusResponse.java    # 状态查询响应
+│   │   │   └── SignConfirmResponse.java   # 签名确认响应
+│   │   ├── dto/
+│   │   │   ├── SignUrlRequest.java        # 签署URL请求
+│   │   │   ├── SignStatusRequest.java     # 状态查询请求
+│   │   │   └── SignConfirmRequest.java    # 签名确认请求
 │   │   ├── config/
 │   │   │   └── RedisConfig.java           # Redis配置
 │   │   └── util/
-│   │       └── JwtUtil.java               # JWT工具
+│   │       ├── JwtUtil.java               # JWT工具
+│   │       └── JacksonUtils.java         # JSON工具
 │   └── resources/
 │       ├── application.yml               # 应用配置
 │       ├── static/
@@ -85,20 +105,53 @@ Content-Type: application/json
 }
 ```
 
-### 2. 验证Token
+### 2. 检查签名状态
 ```http
-GET /api/sign/{token}
+GET /api/sign/status?projectId=project-001&userId=user-001&fileId=file-001
+Authorization: Bearer <token>
 ```
 
 ### 3. 确认签名
 ```http
 POST /api/sign/confirm
 Content-Type: application/json
+Authorization: Bearer <token>
 
 {
-  "token": "jwt-token",
-  "signatureBase64": "base64-encoded-image"
+  "signatureBase64": "base64-encoded-image",
+  "saveForReuse": true
 }
+```
+
+### 4. 获取用户历史签名
+```http
+GET /api/sign/history?userId=user-001
+```
+
+### 5. 获取用户签名列表
+```http
+GET /api/sign/user-signatures?userId=user-001
+```
+
+### 6. 删除签名记录
+```http
+POST /api/sign/delete-record
+Content-Type: application/x-www-form-urlencoded
+
+signRecordId=record-id-123
+```
+
+### 7. 删除用户签名
+```http
+POST /api/sign/delete-user-signature
+Content-Type: application/x-www-form-urlencoded
+
+userId=user-001&signatureId=signature-id-123
+```
+
+### 8. 获取签名图片
+```http
+GET /api/sign/signature-image?signRecordId=record-id-123
 ```
 
 ## 🔄 系统架构
