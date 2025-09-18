@@ -1,8 +1,11 @@
 class QrSignatureApp {
     constructor() {
-        this.apiUrl = 'http://localhost:8080/api/sign';
+        this.apiUrl = 'http://localhost:29308/api/sign';
         this.currentToken = null;
         this.pollingInterval = null;
+        this.currentProjectId = null;
+        this.currentUserId = null;
+        this.currentFileId = null;
         this.init();
     }
 
@@ -12,11 +15,11 @@ class QrSignatureApp {
 
     bindEvents() {
         // 绑定表单提交事件
-        document.getElementById('generateBtn').addEventListener('click', () => this.generateQR());
+        document.getElementById('generateBtn').addEventListener('click', () => this.generateSignPage());
         document.getElementById('resetBtn').addEventListener('click', () => this.resetForm());
     }
 
-    async generateQR() {
+    async generateSignPage() {
         const projectId = document.getElementById('projectId').value.trim();
         const userId = document.getElementById('userId').value.trim();
         const fileId = document.getElementById('fileId').value.trim();
@@ -26,6 +29,10 @@ class QrSignatureApp {
             this.showStatus('请填写所有必需字段', 'error');
             return;
         }
+
+        this.currentProjectId = projectId;
+        this.currentUserId = userId;
+        this.currentFileId = fileId;
 
         try {
             this.showLoading(true);
@@ -45,11 +52,11 @@ class QrSignatureApp {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || '生成二维码失败');
+                throw new Error(data.message || '生成签署页面失败');
             }
 
             this.currentToken = data.token;
-            this.showQRCode(data.signUrl);
+            this.showSignPage(data.signUrl);
             this.startPolling();
 
         } catch (error) {
@@ -58,29 +65,27 @@ class QrSignatureApp {
         }
     }
 
-    showQRCode(url) {
-        const qrContainer = document.getElementById('qrContainer');
-        const qrcodeDiv = document.getElementById('qrcode');
+    showSignPage(url) {
+        const signContainer = document.getElementById('signContainer');
+        const signInfo = document.getElementById('signInfo');
 
-        // 清除之前的二维码
-        qrcodeDiv.innerHTML = '';
+        // 清除之前的内容
+        signInfo.innerHTML = '';
 
-        // 生成新的二维码
-        QRCode.toCanvas(qrcodeDiv, url, {
-            width: 256,
-            height: 256,
-            colorDark: '#000000',
-            colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.H
-        }, (error) => {
-            if (error) {
-                this.showStatus('生成二维码失败: ' + error.message, 'error');
-            } else {
-                qrContainer.classList.add('show');
-                document.getElementById('requestForm').style.display = 'none';
-                this.showStatus('二维码已生成，请扫描进行签名', 'info');
-            }
-        });
+        // 生成签署页面链接
+        signInfo.innerHTML = `
+            <div class="sign-link">
+                <p><strong>签署页面链接：</strong></p>
+                <a href="${url}" target="_blank">${url}</a>
+                <p style="margin-top: 10px; font-size: 14px; color: #666;">
+                    点击链接或在新标签页中打开进行签名
+                </p>
+            </div>
+        `;
+
+        signContainer.classList.add('show');
+        document.getElementById('requestForm').style.display = 'none';
+        this.showStatus('签署页面已生成，请点击链接进行签名', 'info');
     }
 
     startPolling() {
@@ -89,10 +94,15 @@ class QrSignatureApp {
         }
 
         this.pollingInterval = setInterval(async () => {
-            if (!this.currentToken) return;
+            if (!this.currentProjectId || !this.currentUserId || !this.currentFileId || !this.currentToken) return;
 
             try {
-                const response = await fetch(`${this.apiUrl}/${this.currentToken}`);
+                const response = await fetch(`${this.apiUrl}/status?projectId=${this.currentProjectId}&userId=${this.currentUserId}&fileId=${this.currentFileId}`, {
+                    headers: {
+                        'Authorization': this.currentToken
+                    }
+                });
+
                 const data = await response.json();
 
                 if (!response.ok) {
@@ -106,16 +116,16 @@ class QrSignatureApp {
                     // 如果已签署，停止轮询并显示结果
                     if (data.status === '已签署') {
                         this.stopPolling();
-                        this.showSignatureComplete();
+                        this.showSignatureComplete(data.signatureBase64);
                     }
                 }
 
             } catch (error) {
                 console.error('轮询失败:', error);
                 // 如果token无效，停止轮询
-                if (error.message.includes('无效的token') || error.message.includes('token已过期')) {
+                if (error.message.includes('无效的Token') || error.message.includes('未传入token')) {
                     this.stopPolling();
-                    this.showStatus('二维码已过期，请重新生成', 'error');
+                    this.showStatus('token已过期，请重新生成', 'error');
                 }
             }
         }, 2000); // 每2秒轮询一次
@@ -128,12 +138,18 @@ class QrSignatureApp {
         }
     }
 
-    showSignatureComplete() {
-        const qrContainer = document.getElementById('qrContainer');
+    showSignatureComplete(signatureBase64) {
+        const signContainer = document.getElementById('signContainer');
         const signatureResult = document.getElementById('signatureResult');
 
-        qrContainer.classList.remove('show');
+        signContainer.classList.remove('show');
         signatureResult.classList.remove('hidden');
+
+        // 显示签名图片
+        const signatureImage = document.getElementById('signatureImage');
+        if (signatureImage && signatureBase64) {
+            signatureImage.src = signatureBase64;
+        }
 
         this.showStatus('签名已完成！', 'success');
     }
@@ -141,10 +157,13 @@ class QrSignatureApp {
     resetForm() {
         this.stopPolling();
         this.currentToken = null;
+        this.currentProjectId = null;
+        this.currentUserId = null;
+        this.currentFileId = null;
 
         // 重置表单
         document.getElementById('requestForm').style.display = 'block';
-        document.getElementById('qrContainer').classList.remove('show');
+        document.getElementById('signContainer').classList.remove('show');
         document.getElementById('signatureResult').classList.add('hidden');
 
         // 清空状态
@@ -178,7 +197,7 @@ class QrSignatureApp {
             generateBtn.innerHTML = '<span class="loading"></span> 生成中...';
             generateBtn.disabled = true;
         } else {
-            generateBtn.innerHTML = '生成二维码';
+            generateBtn.innerHTML = '生成签署页面';
             generateBtn.disabled = false;
         }
     }
@@ -187,7 +206,7 @@ class QrSignatureApp {
 // 签名页面类
 class SignaturePage {
     constructor() {
-        this.apiUrl = 'http://localhost:8080/api/sign';
+        this.apiUrl = 'http://localhost:29308/api/sign';
         this.token = this.getTokenFromURL();
         this.init();
     }
@@ -198,38 +217,21 @@ class SignaturePage {
             return;
         }
 
-        this.validateToken();
+        this.loadSignPage();
         this.bindEvents();
     }
 
     getTokenFromURL() {
-        const path = window.location.pathname;
-        const parts = path.split('/');
-        return parts[parts.length - 1];
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('token');
     }
 
-    async validateToken() {
-        try {
-            const response = await fetch(`${this.apiUrl}/${this.token}`);
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || '链接无效');
-            }
-
-            this.showSignForm(data);
-        } catch (error) {
-            this.showError(error.message);
-        }
-    }
-
-    showSignForm(data) {
+    loadSignPage() {
         document.getElementById('signForm').innerHTML = `
             <div class="form-info">
                 <h3>签名确认</h3>
-                <p><strong>项目ID:</strong> ${data.projectId}</p>
-                <p><strong>文件ID:</strong> ${data.fileId}</p>
-                <p><strong>当前状态:</strong> ${data.status}</p>
+                <p><strong>签名链接:</strong> ${window.location.href}</p>
+                <p>请在下方区域签名：</p>
             </div>
 
             <div class="signature-canvas">
@@ -258,6 +260,7 @@ class SignaturePage {
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
 
+        // 鼠标事件
         canvas.addEventListener('mousedown', (e) => {
             isDrawing = true;
             const rect = canvas.getBoundingClientRect();
@@ -288,6 +291,39 @@ class SignaturePage {
         canvas.addEventListener('mouseout', () => {
             isDrawing = false;
         });
+
+        // 触摸事件（移动设备支持）
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            lastX = touch.clientX - rect.left;
+            lastY = touch.clientY - rect.top;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!isDrawing) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const currentX = touch.clientX - rect.left;
+            const currentY = touch.clientY - rect.top;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(currentX, currentY);
+            ctx.stroke();
+
+            lastX = currentX;
+            lastY = currentY;
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            isDrawing = false;
+        });
     }
 
     clearCanvas() {
@@ -302,6 +338,16 @@ class SignaturePage {
         const canvas = document.getElementById('signatureCanvas');
         if (!canvas) return;
 
+        // 检查画布是否为空
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const isEmpty = imageData.data.every(pixel => pixel === 0);
+
+        if (isEmpty) {
+            this.showError('请先进行签名');
+            return;
+        }
+
         const signatureBase64 = canvas.toDataURL('image/png');
 
         try {
@@ -309,9 +355,9 @@ class SignaturePage {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': this.token
                 },
                 body: JSON.stringify({
-                    token: this.token,
                     signatureBase64: signatureBase64
                 })
             });
@@ -361,7 +407,7 @@ class SignaturePage {
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
 
-    if (path.startsWith('/api/sign/') && path.length > '/api/sign/'.length) {
+    if (path === '/sign.html' || path.includes('sign.html')) {
         // 签名页面
         window.signaturePage = new SignaturePage();
     } else {
@@ -407,7 +453,9 @@ window.showNotification = function(message, type = 'info') {
     setTimeout(() => {
         notification.style.animation = 'slideOut 0.3s ease';
         setTimeout(() => {
-            document.body.removeChild(notification);
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
         }, 300);
     }, 3000);
 };

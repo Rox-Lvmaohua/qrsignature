@@ -51,7 +51,7 @@ public class SignService {
         }
 
         String token = jwtUtil.generateToken(projectId, userId, fileId, metaCode);
-        String signUrl = String.format("http://%s:%s/api/sign/%s", serverHost, serverPort, token);
+        String signUrl = String.format("http://%s:%s/sign.html?token=Bearer %s", serverHost, serverPort, token);
 
         Map<String, Object> redisData = new HashMap<>();
         redisData.put("projectId", projectId);

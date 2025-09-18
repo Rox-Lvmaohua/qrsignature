@@ -89,7 +89,7 @@
             transform: none;
         }
 
-        .qr-container {
+        .sign-container {
             margin: 30px 0;
             padding: 20px;
             background: #f8f9fa;
@@ -97,13 +97,26 @@
             display: none;
         }
 
-        .qr-container.show {
+        .sign-container.show {
             display: block;
         }
 
-        #qrcode {
-            margin: 20px auto;
-            display: inline-block;
+        .sign-link {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .sign-link a {
+            color: #007bff;
+            text-decoration: none;
+            word-break: break-all;
+        }
+
+        .sign-link a:hover {
+            text-decoration: underline;
         }
 
         .status {
@@ -190,13 +203,13 @@
                 <input type="text" id="metaCode" value="META-CODE-001" required>
             </div>
 
-            <button onclick="generateQR()" id="generateBtn">生成二维码</button>
+            <button onclick="generateSignPage()" id="generateBtn">生成签署页面</button>
         </div>
 
-        <div id="qrContainer" class="qr-container">
-            <h3>扫描二维码进行签名</h3>
-            <div id="qrcode"></div>
-            <div id="status" class="status info">等待扫码...</div>
+        <div id="signContainer" class="sign-container">
+            <h3>签署页面链接</h3>
+            <div id="signInfo"></div>
+            <div id="status" class="status info">等待签署...</div>
             <button onclick="resetForm()" id="resetBtn">重新生成</button>
         </div>
 
