@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface SignRecordRepository extends JpaRepository<SignRecord, Long> {
+public interface SignRecordRepository extends JpaRepository<SignRecord, String> {
 
     Optional<SignRecord> findByProjectIdAndUserIdAndFileId(String projectId, String userId, String fileId);
 

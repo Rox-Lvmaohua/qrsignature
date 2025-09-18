@@ -4,11 +4,13 @@ import com.qrsignature.controller.dto.SignUrlRequest;
 import com.qrsignature.service.SignService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-@RestController
+@Controller
 @RequestMapping("/api/sign")
 @CrossOrigin(origins = "*")
 public class SignController {
@@ -17,6 +19,7 @@ public class SignController {
     private SignService signService;
 
     @PostMapping("/url")
+    @ResponseBody
     public ResponseEntity<?> generateSignUrl(@RequestBody SignUrlRequest request) {
         try {
             String projectId = request.getProjectId();
@@ -36,6 +39,7 @@ public class SignController {
     }
 
     @GetMapping("/{token}")
+    @ResponseBody
     public ResponseEntity<?> validateToken(@PathVariable String token) {
         try {
             Map<String, Object> result = signService.validateToken(token);
@@ -48,7 +52,16 @@ public class SignController {
         }
     }
 
+    @GetMapping("/sign")
+    public String signPage(String token, Model model) {
+        // 处理逻辑
+        model.addAttribute("token", token);
+        // 返回正确的视图名称
+        return "sign";
+    }
+
     @PostMapping("/confirm")
+    @ResponseBody
     public ResponseEntity<?> confirmSign(@RequestBody Map<String, String> request) {
         try {
             String token = request.get("token");

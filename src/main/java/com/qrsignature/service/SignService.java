@@ -2,6 +2,7 @@ package com.qrsignature.service;
 
 import com.qrsignature.entity.SignRecord;
 import com.qrsignature.repository.SignRecordRepository;
+import com.qrsignature.util.JacksonUtils;
 import com.qrsignature.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,7 +58,7 @@ public class SignService {
         redisData.put("metaCode", metaCode);
         redisData.put("signRecordId", signRecord.getId());
 
-        redisTemplate.opsForValue().set(token, redisData, Duration.ofMinutes(15));
+        redisTemplate.opsForValue().set(token, JacksonUtils.toJsonString(redisData), Duration.ofMinutes(15));
 
         Map<String, Object> result = new HashMap<>();
         result.put("signUrl", signUrl);
@@ -72,12 +73,12 @@ public class SignService {
             throw new RuntimeException("无效的token");
         }
 
-        Map<String, Object> redisData = (Map<String, Object>) redisTemplate.opsForValue().get(token);
+        Map<String, Object> redisData = JacksonUtils.readJson((String) redisTemplate.opsForValue().get(token), Map.class);
         if (redisData == null) {
             throw new RuntimeException("token已过期或不存在");
         }
 
-        Long signRecordId = Long.valueOf(redisData.get("signRecordId").toString());
+        String signRecordId = redisData.get("signRecordId").toString();
         SignRecord signRecord = signRecordRepository.findById(signRecordId)
                 .orElseThrow(() -> new RuntimeException("签署记录不存在"));
 
@@ -100,12 +101,12 @@ public class SignService {
             throw new RuntimeException("无效的token");
         }
 
-        Map<String, Object> redisData = (Map<String, Object>) redisTemplate.opsForValue().get(token);
+        Map<String, Object> redisData = JacksonUtils.readJson((String) redisTemplate.opsForValue().get(token), Map.class);
         if (redisData == null) {
             throw new RuntimeException("token已过期或不存在");
         }
 
-        Long signRecordId = Long.valueOf(redisData.get("signRecordId").toString());
+        String signRecordId = redisData.get("signRecordId").toString();
         SignRecord signRecord = signRecordRepository.findById(signRecordId)
                 .orElseThrow(() -> new RuntimeException("签署记录不存在"));
 
