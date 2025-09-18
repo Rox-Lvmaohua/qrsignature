@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -35,7 +36,7 @@ public class SignService {
     @Value("${server.host:localhost}")
     private String serverHost;
 
-    public SignUrlResponse generateSignUrl(String projectId, String userId, String fileId, String metaCode) {
+    public SignUrlResponse generateSignUrl(String token, String projectId, String userId, String fileId, String metaCode) {
         Optional<SignRecord> existingRecord = signRecordRepository
                 .findByProjectIdAndUserIdAndFileId(projectId, userId, fileId);
 
@@ -50,7 +51,9 @@ public class SignService {
             signRecord = signRecordRepository.save(signRecord);
         }
 
-        String token = jwtUtil.generateToken(projectId, userId, fileId, metaCode);
+        if (!StringUtils.hasText(token) || !jwtUtil.validateToken(token)) {
+            token = jwtUtil.generateToken(projectId, userId, fileId, metaCode);
+        }
         String signUrl = String.format("http://%s:%s/sign.html?token=Bearer %s", serverHost, serverPort, token);
 
         Map<String, Object> redisData = new HashMap<>();
@@ -71,9 +74,9 @@ public class SignService {
         return response;
     }
 
-    public SignStatusResponse checkSignStatus(String projectId, String userId, String fileId) {
+    public SignStatusResponse checkSignStatus(String signRecordId) {
         Optional<SignRecord> signRecord = signRecordRepository
-                .findByProjectIdAndUserIdAndFileId(projectId, userId, fileId);
+                .findById(signRecordId);
 
         if (signRecord.isEmpty()) {
             throw new RuntimeException("签署记录不存在");
@@ -81,9 +84,6 @@ public class SignService {
 
         SignRecord record = signRecord.get();
         SignStatusResponse response = new SignStatusResponse();
-        response.setProjectId(projectId);
-        response.setUserId(userId);
-        response.setFileId(fileId);
         response.setMetaCode(record.getMetaCode());
         response.setStatus(record.getStatus().getDescription());
 

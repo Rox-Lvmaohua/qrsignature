@@ -29,9 +29,11 @@ public class SignController {
     private JwtUtil jwtUtil;
 
     @PostMapping("/url")
-    public ResponseEntity<?> generateSignUrl(@RequestBody SignUrlRequest request) {
+    public ResponseEntity<?> generateSignUrl(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                             @RequestBody SignUrlRequest request) {
         try {
             SignUrlResponse result = signService.generateSignUrl(
+                    authorization,
                     request.getProjectId(),
                     request.getUserId(),
                     request.getFileId(),
@@ -48,9 +50,7 @@ public class SignController {
 
     @GetMapping("/status")
     public ResponseEntity<?> checkSignStatus(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                             @RequestParam String projectId,
-                                           @RequestParam String userId,
-                                           @RequestParam String fileId) {
+                                             @RequestParam String signRecordId) {
         try {
             if (authorization == null || authorization.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -65,7 +65,7 @@ public class SignController {
                         "message", "无效的Token"
                 ));
             }
-            SignStatusResponse result = signService.checkSignStatus(projectId, userId, fileId);
+            SignStatusResponse result = signService.checkSignStatus(signRecordId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
