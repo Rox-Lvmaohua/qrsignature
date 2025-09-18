@@ -33,7 +33,6 @@ class QrSignatureApp {
         this.currentProjectId = projectId;
         this.currentUserId = userId;
         this.currentFileId = fileId;
-        this.signatureId = null;
 
         try {
             this.showLoading(true);
@@ -57,8 +56,7 @@ class QrSignatureApp {
             }
 
             this.currentToken = data.token;
-            this.signatureId = data.signatureId;
-            this.showSignPage(data.signUrl, data.signatureSequence);
+            this.showSignPage(data.signUrl);
             this.startPolling();
 
         } catch (error) {
@@ -67,7 +65,7 @@ class QrSignatureApp {
         }
     }
 
-    showSignPage(url, signatureSequence) {
+    showSignPage(url) {
         const signContainer = document.getElementById('signContainer');
         const signInfo = document.getElementById('signInfo');
 
@@ -80,14 +78,14 @@ class QrSignatureApp {
                 <p><strong>签署页面链接：</strong></p>
                 <a href="${url}" target="_blank">${url}</a>
                 <p style="margin-top: 10px; font-size: 14px; color: #666;">
-                    签署序号: ${signatureSequence} | 点击链接或在新标签页中打开进行签名
+                    点击链接或在新标签页中打开进行签名
                 </p>
             </div>
         `;
 
         signContainer.classList.add('show');
         document.getElementById('requestForm').style.display = 'none';
-        this.showStatus(`签署页面已生成（第${signatureSequence}次签署），请点击链接进行签名`, 'info');
+        this.showStatus('签署页面已生成，请点击链接进行签名', 'info');
     }
 
     startPolling() {
@@ -99,7 +97,7 @@ class QrSignatureApp {
             if (!this.currentProjectId || !this.currentUserId || !this.currentFileId || !this.currentToken) return;
 
             try {
-                const response = await fetch(`${this.apiUrl}/status?id=${this.signatureId}`, {
+                const response = await fetch(`${this.apiUrl}/status?projectId=${this.currentProjectId}&userId=${this.currentUserId}&fileId=${this.currentFileId}`, {
                     headers: {
                         'Authorization': this.currentToken
                     }
@@ -113,12 +111,12 @@ class QrSignatureApp {
 
                 // 检查状态是否变化
                 if (data.status !== '未扫描') {
-                    this.showStatus(`当前状态: ${data.status} (第${data.signatureSequence || 1}次签署)`, 'info');
+                    this.showStatus(`当前状态: ${data.status}`, 'info');
 
                     // 如果已签署，停止轮询并显示结果
                     if (data.status === '已签署') {
                         this.stopPolling();
-                        this.showSignatureComplete(data.signatureBase64, data.signatureSequence);
+                        this.showSignatureComplete(data.signatureBase64);
                     }
                 }
 
@@ -140,7 +138,7 @@ class QrSignatureApp {
         }
     }
 
-    showSignatureComplete(signatureBase64, signatureSequence) {
+    showSignatureComplete(signatureBase64) {
         const signContainer = document.getElementById('signContainer');
         const signatureResult = document.getElementById('signatureResult');
 
@@ -153,13 +151,7 @@ class QrSignatureApp {
             signatureImage.src = signatureBase64;
         }
 
-        // 显示签署序号
-        const sequenceInfo = document.getElementById('sequenceInfo');
-        if (sequenceInfo) {
-            sequenceInfo.textContent = `第${signatureSequence || 1}次签署`;
-        }
-
-        this.showStatus(`签名已完成！（第${signatureSequence || 1}次签署）`, 'success');
+        this.showStatus('签名已完成！', 'success');
     }
 
     resetForm() {
@@ -168,7 +160,6 @@ class QrSignatureApp {
         this.currentProjectId = null;
         this.currentUserId = null;
         this.currentFileId = null;
-        this.signatureId = null;
 
         // 重置表单
         document.getElementById('requestForm').style.display = 'block';
@@ -217,9 +208,6 @@ class SignaturePage {
     constructor() {
         this.apiUrl = 'http://localhost:29308/api/sign';
         this.token = this.getTokenFromURL();
-        this.currentUserId = null;
-        this.selectedUserSignatureId = null;
-        this.signatureMode = 'draw'; // 'draw' or 'historical'
         this.init();
     }
 
@@ -238,90 +226,15 @@ class SignaturePage {
         return urlParams.get('token');
     }
 
-    async loadSignPage() {
-        try {
-            // 尝试从token中获取用户信息
-            const response = await fetch(`${this.apiUrl}/user-info`, {
-                headers: {
-                    'Authorization': this.token
-                }
-            });
-
-            if (response.ok) {
-                const userData = await response.json();
-                this.currentUserId = userData.userId;
-                await this.loadUserSignatures();
-            } else {
-                console.warn('无法获取用户信息，继续加载页面');
-                this.userSignatures = [];
-            }
-        } catch (error) {
-            console.warn('加载用户信息失败，继续加载页面:', error);
-            this.userSignatures = [];
-        }
-
-        // 无论是否获取到用户信息，都渲染页面
-        this.renderSignaturePage();
-    }
-
-    async loadUserSignatures() {
-        if (!this.currentUserId) {
-            this.userSignatures = [];
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.apiUrl}/user-signatures?userId=${this.currentUserId}`);
-            if (response.ok) {
-                const signatures = await response.json();
-                this.userSignatures = signatures || [];
-            } else {
-                this.userSignatures = [];
-            }
-        } catch (error) {
-            console.warn('加载用户签名失败:', error);
-            this.userSignatures = [];
-        }
-    }
-
-    renderSignaturePage() {
-        const signForm = document.getElementById('signForm');
-
-        let historicalSignaturesHtml = '';
-        const signatures = this.userSignatures || [];
-        if (signatures.length > 0) {
-            historicalSignaturesHtml = `
-                <div class="historical-signatures">
-                    <h4>历史签名：</h4>
-                    <div class="signature-grid">
-                        ${signatures.map(sig => `
-                            <div class="signature-item" data-signature-id="${sig.id}">
-                                <img src="${sig.signatureBase64}" alt="签名">
-                                <p>${sig.signatureName}</p>
-                                ${sig.isDefault ? '<small style="color: #28a745;">默认</small>' : ''}
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
-        signForm.innerHTML = `
+    loadSignPage() {
+        document.getElementById('signForm').innerHTML = `
             <div class="form-info">
                 <h3>签名确认</h3>
                 <p><strong>签名链接:</strong> ${window.location.href}</p>
-                <p>请在下方选择签名方式：</p>
+                <p>请在下方区域签名：</p>
             </div>
 
-            <div class="signature-mode">
-                <h4>签名方式：</h4>
-                <div class="mode-selector">
-                    <div class="mode-btn active" data-mode="draw">手写签名</div>
-                    <div class="mode-btn" data-mode="historical">历史签名</div>
-                </div>
-            </div>
-
-            <div id="drawMode" class="signature-canvas">
+            <div class="signature-canvas">
                 <h4>请在下方区域签名：</h4>
                 <canvas id="signatureCanvas" width="400" height="200" style="border: 2px solid #ddd; border-radius: 8px; cursor: crosshair;"></canvas>
                 <div class="canvas-controls">
@@ -329,64 +242,9 @@ class SignaturePage {
                     <button onclick="signaturePage.confirmSignature()" class="confirm-btn">确认签名</button>
                 </div>
             </div>
-
-            <div id="historicalMode" class="historical-signatures hidden">
-                ${historicalSignaturesHtml}
-                <div class="canvas-controls">
-                    <button onclick="signaturePage.confirmSignature()" class="confirm-btn">确认签名</button>
-                </div>
-            </div>
-
-            <div class="signature-options">
-                <h4>签名选项：</h4>
-                <div class="checkbox-group">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="saveForReuse">
-                        <label for="saveForReuse">保存此签名以便下次使用</label>
-                    </div>
-                    <div class="checkbox-item" id="signatureNameGroup" style="display: none;">
-                        <input type="text" id="signatureName" class="text-input" placeholder="签名名称（可选）">
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="setAsDefault">
-                        <label for="setAsDefault">设为默认签名</label>
-                    </div>
-                </div>
-            </div>
         `;
 
-        this.bindSignatureEvents();
         this.initSignatureCanvas();
-    }
-
-    bindSignatureEvents() {
-        // 签名方式切换
-        document.querySelectorAll('.mode-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-
-                const mode = e.target.dataset.mode;
-                this.signatureMode = mode;
-
-                document.getElementById('drawMode').classList.toggle('hidden', mode !== 'draw');
-                document.getElementById('historicalMode').classList.toggle('hidden', mode !== 'historical');
-            });
-        });
-
-        // 保存签名选项
-        document.getElementById('saveForReuse').addEventListener('change', (e) => {
-            document.getElementById('signatureNameGroup').style.display = e.target.checked ? 'flex' : 'none';
-        });
-
-        // 历史签名选择
-        document.querySelectorAll('.signature-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                document.querySelectorAll('.signature-item').forEach(i => i.classList.remove('selected'));
-                e.currentTarget.classList.add('selected');
-                this.selectedUserSignatureId = e.currentTarget.dataset.signatureId;
-            });
-        });
     }
 
     initSignatureCanvas() {
@@ -477,35 +335,20 @@ class SignaturePage {
     }
 
     async confirmSignature() {
-        let signatureBase64 = null;
-        let userSignatureId = null;
+        const canvas = document.getElementById('signatureCanvas');
+        if (!canvas) return;
 
-        if (this.signatureMode === 'draw') {
-            const canvas = document.getElementById('signatureCanvas');
-            if (!canvas) return;
+        // 检查画布是否为空
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const isEmpty = imageData.data.every(pixel => pixel === 0);
 
-            // 检查画布是否为空
-            const ctx = canvas.getContext('2d');
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const isEmpty = imageData.data.every(pixel => pixel === 0);
-
-            if (isEmpty) {
-                this.showError('请先进行签名');
-                return;
-            }
-
-            signatureBase64 = canvas.toDataURL('image/png');
-        } else if (this.signatureMode === 'historical') {
-            if (!this.selectedUserSignatureId) {
-                this.showError('请选择一个历史签名');
-                return;
-            }
-            userSignatureId = this.selectedUserSignatureId;
+        if (isEmpty) {
+            this.showError('请先进行签名');
+            return;
         }
 
-        const saveForReuse = document.getElementById('saveForReuse').checked;
-        const signatureName = document.getElementById('signatureName').value.trim();
-        const setAsDefault = document.getElementById('setAsDefault').checked;
+        const signatureBase64 = canvas.toDataURL('image/png');
 
         try {
             const response = await fetch(`${this.apiUrl}/confirm`, {
@@ -515,11 +358,7 @@ class SignaturePage {
                     'Authorization': this.token
                 },
                 body: JSON.stringify({
-                    signatureBase64: signatureBase64,
-                    userSignatureId: userSignatureId,
-                    saveForReuse: saveForReuse,
-                    signatureName: signatureName,
-                    setAsDefault: setAsDefault
+                    signatureBase64: signatureBase64
                 })
             });
 
@@ -545,9 +384,6 @@ class SignaturePage {
                     <img src="${data.signatureBase64}" alt="签名图片" style="max-width: 100%; max-height: 200px; border-radius: 8px;">
                 </div>
                 <p><small>签名记录ID: ${data.signRecordId}</small></p>
-                <p><small>第${data.signatureSequence || 1}次签署</small></p>
-                <button onclick="window.close()">关闭页面</button>
-                <button onclick="window.location.href='/'">返回首页</button>
             </div>
         `;
     }
@@ -571,16 +407,12 @@ class SignaturePage {
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
 
-    if (path === '/signing.html' || path.includes('signing.html')) {
+    if (path === '/sign.html' || path.includes('sign.html')) {
         // 签名页面
         window.signaturePage = new SignaturePage();
     } else {
         // 主页面
         window.qrSignatureApp = new QrSignatureApp();
-
-        // 暴露全局函数供HTML调用
-        window.generateSignPage = () => window.qrSignatureApp.generateSignPage();
-        window.resetForm = () => window.qrSignatureApp.resetForm();
     }
 });
 

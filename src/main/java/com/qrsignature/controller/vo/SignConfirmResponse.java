@@ -8,5 +8,4 @@ public class SignConfirmResponse {
     private String status;
     private String signatureBase64;
     private String signRecordId;
-    private Integer signatureSequence;
 }
