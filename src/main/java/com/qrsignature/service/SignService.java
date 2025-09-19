@@ -59,32 +59,42 @@ public class SignService {
     private String serverHost;
 
     public SignUrlResponse generateSignUrl(String token, String projectId, String userId, String fileId, String metaCode) {
-        // 获取下一个签名序号
-        Integer nextSequence = signRecordRepository.getMaxSignatureSequence(projectId, userId, fileId);
-        if (nextSequence == null) {
-            nextSequence = 1;
-        } else {
-            nextSequence++;
-        }
-
         // 创建新的签署记录，支持多次签署
-        SignRecord signRecord = new SignRecord(projectId, userId, fileId, metaCode);
-        signRecord.setSignatureSequence(nextSequence);
-        signRecord = signRecordRepository.save(signRecord);
-
-        if (!StringUtils.hasText(token)) {
-            token = jwtUtil.generateToken(projectId, userId, fileId, metaCode);
-        } else if (!jwtUtil.validateToken(token)) {
-            token = jwtUtil.generateToken(projectId, userId, fileId, metaCode);
-        }
-        String signUrl = String.format("http://%s:%s/sign.html?token=Bearer %s", serverHost, serverPort, token);
+        SignRecord signRecord = null;
+        Integer nextSequence = null;
 
         Map<String, Object> redisData = new HashMap<>();
-        redisData.put("projectId", projectId);
-        redisData.put("userId", userId);
-        redisData.put("fileId", fileId);
-        redisData.put("metaCode", metaCode);
-        redisData.put("signRecordId", signRecord.getId());
+
+        if (!StringUtils.hasText(token) || !jwtUtil.validateToken(token)) {
+            token = jwtUtil.generateToken(projectId, userId, fileId, metaCode);
+            // 获取下一个签名序号
+            nextSequence = signRecordRepository.getMaxSignatureSequence(projectId, userId, fileId);
+            if (nextSequence == null) {
+                nextSequence = 1;
+            } else {
+                nextSequence++;
+            }
+            signRecord = createSignRecord(projectId, userId, fileId, metaCode);
+            redisData = buildRedisData(projectId, userId, fileId, metaCode, signRecord.getId());
+        } else if (!jwtUtil.validateToken(token)) {
+            Map<String, Object> cacheData = tokenCache.getIfPresent(token);
+            if (cacheData == null) {
+                throw new RuntimeException("无效的token");
+            }
+            projectId = (String) cacheData.get("projectId");
+            userId = (String) cacheData.get("userId");
+            fileId = (String) cacheData.get("fileId");
+            metaCode = (String) cacheData.get("metaCode");
+            String signRecordId = (String) cacheData.get("signRecordId");
+            Optional<SignRecord> signRecordIdEntity = signRecordRepository.findById(signRecordId);
+            if (signRecordIdEntity.isEmpty()) {
+                signRecord = createSignRecord(projectId, userId, fileId, metaCode);
+            } else {
+                signRecord = signRecordIdEntity.get();
+            }
+            redisData = buildRedisData(projectId, userId, fileId, metaCode, signRecord.getId());
+        }
+        String signUrl = String.format("http://%s:%s/sign.html?token=Bearer %s", serverHost, serverPort, token);
 
         tokenCache.put(token, redisData);
         token = "Bearer " + token;
@@ -97,6 +107,29 @@ public class SignService {
         response.setSignRecordId(signRecord.getId());
 
         return response;
+    }
+
+    private SignRecord createSignRecord(String projectId, String userId, String fileId, String metaCode) {
+        Integer nextSequence = signRecordRepository.getMaxSignatureSequence(projectId, userId, fileId);
+        if (nextSequence == null) {
+            nextSequence = 1;
+        } else {
+            nextSequence++;
+        }
+
+        SignRecord signRecord = new SignRecord(projectId, userId, fileId, metaCode);
+        signRecord.setSignatureSequence(nextSequence);
+        return signRecordRepository.save(signRecord);
+    }
+
+    private Map<String, Object> buildRedisData(String projectId, String userId, String fileId, String metaCode, String signRecordId) {
+        Map<String, Object> redisData = new HashMap<>();
+        redisData.put("projectId", projectId);
+        redisData.put("userId", userId);
+        redisData.put("fileId", fileId);
+        redisData.put("metaCode", metaCode);
+        redisData.put("signRecordId", signRecordId);
+        return redisData;
     }
 
     public SignStatusResponse checkSignStatus(String signRecordId) {
