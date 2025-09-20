@@ -6,6 +6,7 @@ import com.qrsignature.controller.dto.SignUrlRequest;
 import com.qrsignature.controller.vo.SignConfirmResponse;
 import com.qrsignature.controller.vo.SignStatusResponse;
 import com.qrsignature.controller.vo.SignUrlResponse;
+import com.qrsignature.controller.vo.UserSignaturesResponse;
 import com.qrsignature.service.SignService;
 import com.qrsignature.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,6 +71,36 @@ public class SignController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "检查签署状态失败",
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/user-signatures")
+    public ResponseEntity<?> getUserSignatures(@RequestParam String userId) {
+        try {
+            UserSignaturesResponse result = signService.getUserSignatures(userId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "获取用户签名失败",
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/check-signature-exists")
+    public ResponseEntity<?> checkSignatureExists(@RequestParam String userId) {
+        try {
+            boolean canSave = signService.canSaveUserSignature(userId);
+            String message = canSave ? "可以保存" : "已存在历史签名";
+            return ResponseEntity.ok(Map.of(
+                    "canSave", canSave,
+                    "message", message
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "检查签名存在性失败",
                     "message", e.getMessage()
             ));
         }

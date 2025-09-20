@@ -27,4 +27,10 @@ public interface UserSignatureRepository extends JpaRepository<UserSignature, St
      * 删除用户指定签名
      */
     void deleteByUserIdAndId(String userId, String signatureId);
+
+    /**
+     * 检查用户是否已存在签名
+     */
+    @Query("SELECT COUNT(us.userId) > 0 FROM UserSignature us WHERE us.userId = :userId")
+    boolean existsByUserId(@Param("userId") String userId);
 }

@@ -6,6 +6,7 @@ import com.qrsignature.controller.dto.SignConfirmRequest;
 import com.qrsignature.controller.vo.SignConfirmResponse;
 import com.qrsignature.controller.vo.SignStatusResponse;
 import com.qrsignature.controller.vo.SignUrlResponse;
+import com.qrsignature.controller.vo.UserSignaturesResponse;
 import com.qrsignature.entity.SignRecord;
 import com.qrsignature.entity.UserSignature;
 import com.qrsignature.repository.SignRecordRepository;
@@ -14,12 +15,12 @@ import com.qrsignature.util.JacksonUtils;
 import com.qrsignature.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -37,8 +38,6 @@ public class SignService {
     @Autowired
     private JwtUtil jwtUtil;
 
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
 
     // 使用Guava Cache实现本地缓存，设置15分钟过期时间
     private final Cache<String, Map<String, Object>> tokenCache = CacheBuilder.newBuilder()
@@ -94,7 +93,7 @@ public class SignService {
             }
             redisData = buildRedisData(projectId, userId, fileId, metaCode, signRecord.getId());
         }
-        String signUrl = String.format("http://%s:%s/sign.html?token=Bearer %s", serverHost, serverPort, token);
+        String signUrl = String.format("http://%s:%s/sign?token=Bearer %s", serverHost, serverPort, token);
 
         tokenCache.put(token, redisData);
         token = "Bearer " + token;
@@ -185,7 +184,10 @@ public class SignService {
                 signatureBase64 = userSignature.get().getSignatureBase64();
             }
         } else if (request.getSaveForReuse() != null && request.getSaveForReuse()) {
-            // 保存用户签名以便重用
+            // 保存用户签名以便重用，先检查是否已存在签名
+            if (!canSaveUserSignature(signRecord.getUserId())) {
+                throw new RuntimeException("该用户已存在历史签名，不可重复保存");
+            }
             saveUserSignature(signRecord.getUserId(), signatureBase64);
         }
 
@@ -207,10 +209,41 @@ public class SignService {
     }
 
     /**
+     * 检查用户是否可以保存签名
+     */
+    public boolean canSaveUserSignature(String userId) {
+        return !userSignatureRepository.existsByUserId(userId);
+    }
+
+    /**
      * 保存用户签名以便重用
      */
     private void saveUserSignature(String userId, String signatureBase64) {
         UserSignature userSignature = new UserSignature(userId, signatureBase64);
         userSignatureRepository.save(userSignature);
+    }
+
+    /**
+     * 获取用户所有签名
+     */
+    public UserSignaturesResponse getUserSignatures(String userId) {
+        List<UserSignature> signatures = userSignatureRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        
+        UserSignaturesResponse response = new UserSignaturesResponse();
+        response.setUserId(userId);
+        
+        List<UserSignaturesResponse.SignatureInfo> signatureInfos = signatures.stream()
+                .map(signature -> {
+                    UserSignaturesResponse.SignatureInfo info = new UserSignaturesResponse.SignatureInfo();
+                    info.setId(signature.getId());
+                    info.setSignatureBase64(signature.getSignatureBase64());
+                    info.setCreatedAt(signature.getCreatedAt());
+                    info.setUpdatedAt(signature.getUpdatedAt());
+                    return info;
+                })
+                .toList();
+        
+        response.setSignatures(signatureInfos);
+        return response;
     }
 }

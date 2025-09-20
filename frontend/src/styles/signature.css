@@ -1,0 +1,335 @@
+/* 签名页面样式 - Bootstrap集成 */
+
+/* 背景渐变 */
+.bg-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+/* 表单信息 */
+.form-info {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    margin-bottom: 1.5rem;
+    text-align: left;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 123, 255, 0.1);
+}
+
+.form-info h3 {
+    color: #333;
+    margin-bottom: 1rem;
+    text-align: center;
+    font-weight: 600;
+}
+
+.form-info p {
+    margin: 0.5rem 0;
+    color: #666;
+}
+
+.form-info strong {
+    color: #333;
+}
+
+/* 签名画布 */
+.signature-canvas {
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.signature-canvas h4 {
+    color: #333;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+#signatureCanvas {
+    border: 2px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: white;
+    cursor: crosshair;
+    display: block;
+    margin: 0 auto;
+}
+
+.canvas-controls {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* 成功消息 */
+.success-message {
+    text-align: center;
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.success-message h3 {
+    color: #198754;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.success-message p {
+    color: #666;
+    margin: 1rem 0;
+}
+
+/* 签名预览 */
+.signature-preview {
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0.75rem;
+    border: 2px dashed rgba(108, 117, 125, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.signature-preview h4 {
+    color: #333;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.signature-preview img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 0.5rem;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 错误消息 */
+.error-message {
+    text-align: center;
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.error-message h3 {
+    color: #dc3545;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.error-message p {
+    color: #666;
+    margin: 1rem 0;
+}
+
+/* 历史签名样式 */
+.signature-history {
+    margin: 20px 0;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+}
+
+.signature-history h4 {
+    color: #333;
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.signature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.signature-item {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    background: white;
+}
+
+.signature-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+    transform: translateY(-2px);
+}
+
+.signature-item.selected {
+    border-color: #28a745;
+    background: #f8fff9;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
+}
+
+.signature-item img {
+    width: 100%;
+    height: 80px;
+    object-fit: contain;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    margin-bottom: 8px;
+}
+
+.signature-info {
+    font-size: 12px;
+}
+
+.signature-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.signature-date {
+    color: #6c757d;
+    font-size: 11px;
+}
+
+.no-signatures {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px dashed #dee2e6;
+}
+
+.save-option {
+    margin: 15px 0;
+    padding: 15px;
+    background: #e8f5e8;
+    border-radius: 8px;
+    border-left: 4px solid #28a745;
+    text-align: left;
+}
+
+.save-option label {
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    color: #155724;
+    margin-bottom: 8px;
+}
+
+.save-option input[type="checkbox"] {
+    margin-right: 8px;
+    width: auto;
+}
+
+.save-option p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+/* 签名确认对话框样式 */
+.signature-confirmation-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.signature-confirmation-dialog .dialog-content {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.signature-confirmation-dialog .dialog-content h3 {
+    margin: 0 0 20px 0;
+    color: #333;
+}
+
+.signature-confirmation-dialog .dialog-content p {
+    margin: 0 0 30px 0;
+    color: #666;
+}
+
+.signature-confirmation-dialog .dialog-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.signature-confirmation-dialog .dialog-buttons button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.signature-confirmation-dialog .btn-cancel {
+    background: #6c757d;
+    color: white;
+}
+
+.signature-confirmation-dialog .btn-confirm {
+    background: #28a745;
+    color: white;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .signature-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+    }
+
+    .signature-item img {
+        height: 60px;
+    }
+
+    .signature-info {
+        font-size: 11px;
+    }
+
+    .signature-name {
+        font-size: 10px;
+    }
+
+    .signature-date {
+        font-size: 10px;
+    }
+
+    .signature-confirmation-dialog .dialog-content {
+        padding: 20px;
+        margin: 20px;
+    }
+
+    .signature-confirmation-dialog .dialog-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .signature-confirmation-dialog .dialog-buttons button {
+        width: 100%;
+    }
+}

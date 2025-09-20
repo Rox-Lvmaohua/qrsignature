@@ -24,7 +24,7 @@ public class UserSignature {
     @Column(name = "id", updatable = false, nullable = false)
     private String id;
 
-    @Column(name = "user_id", nullable = false, length = 100)
+    @Column(name = "user_id", nullable = false, length = 100, unique = true)
     private String userId;
 
     @Column(name = "signature_base64", nullable = false, columnDefinition = "TEXT")
